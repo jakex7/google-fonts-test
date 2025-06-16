@@ -3,44 +3,32 @@ name: Publish font packages
 on:
   workflow_dispatch:
     inputs:
-      publishAll:
-        description: 'Publish all packages'
-        type: boolean
       packageNames:
-        description: 'OR enter a comma-separated list of package names to publish'
+        description: 'Enter a comma-separated list of package names to publish'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Create repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: ''
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch packages to publish
+        run: |
+          git sparse-checkout set $(echo "${{ github.event.inputs.packageNames }}" | tr ',' '\n' | sed -e 's/^[[:space:]]*//' | sed 's|^|font-packages/|')
+          git pull origin ${{ github.ref }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Publish all packages
-        if: ${{ github.event.inputs.publishAll == 'true' }}
+      - name: Publish specific packages
         run: |
           count=0
-          for package in font-packages/*; do
-            if [ -d "$package" ]; then
-              echo "Publishing package: $(basename $package)"
-              if [ $((count % 2)) -eq 0 ]; then
-                export NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN }}
-              else
-                export NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN_2 }}
-              fi
-              (cd "$package" && npm publish --access public)
-              count=$((count + 1))
-            fi
-          done
-
-      - name: Publish specific packages
-        if: ${{ github.event.inputs.publishAll != 'true' }}
-        run: |
           IFS=',' read -ra PACKAGES <<< "${{ github.event.inputs.packageNames }}"
           for package in "${PACKAGES[@]}"; do
             # Remove any whitespace
@@ -50,9 +38,14 @@ jobs:
               echo "Error: Package directory 'font-packages/$package' does not exist"
               exit 1
             fi
-            
+
+            if [ $((count % 2)) -eq 0 ]; then
+              export NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN }}
+            else
+              export NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN_2 }}
+            fi
+
             echo "Publishing package: $package"
             (cd "font-packages/$package" && npm publish --access public)
+            count=$((count + 1))
           done
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
