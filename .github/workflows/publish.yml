@@ -30,6 +30,7 @@ jobs:
         run: |
           count=0
           IFS=',' read -ra PACKAGES <<< "${{ github.event.inputs.packageNames }}"
+          ls -la font-packages
           for package in "${PACKAGES[@]}"; do
             # Remove any whitespace
             package=$(echo "$package" | tr -d '[:space:]')
@@ -46,6 +47,6 @@ jobs:
             fi
 
             echo "Publishing package: $package"
-            (cd "font-packages/$package" && npm publish --access public)
+            (cd "font-packages/$package" && ls -la)
             count=$((count + 1))
           done
