@@ -37,9 +37,7 @@ jobs:
             sparse_paths+=("font-packages/$package")
           done
 
-          auth_header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w 0)"
-
-          git -c http.https://github.com/.extraheader="$auth_header" clone \
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $GITHUB_TOKEN" clone \
             --depth=1 \
             --filter=blob:none \
             --sparse \
@@ -49,7 +47,7 @@ jobs:
             .
 
           git sparse-checkout set -- "${sparse_paths[@]}"
-          git -c http.https://github.com/.extraheader="$auth_header" checkout --detach "$GITHUB_SHA"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: bearer $GITHUB_TOKEN" checkout --detach "$GITHUB_SHA"
 
       - uses: actions/setup-node@v4
         with:
@@ -59,12 +57,10 @@ jobs:
       - name: Publish all packages
         if: ${{ github.event.inputs.publishAll == 'true' }}
         run: |
-          set -euo pipefail
-
           count=0
           for package in font-packages/*; do
             if [ -d "$package" ]; then
-              echo "Publishing package: $(basename "$package")"
+              echo "Publishing package: $(basename $package)"
               if [ $((count % 2)) -eq 0 ]; then
                 export NODE_AUTH_TOKEN=${{ secrets.NPM_TOKEN }}
               else
@@ -78,8 +74,6 @@ jobs:
       - name: Publish specific packages
         if: ${{ github.event.inputs.publishAll != 'true' }}
         run: |
-          set -euo pipefail
-
           IFS=',' read -ra PACKAGES <<< "${{ github.event.inputs.packageNames }}"
           for package in "${PACKAGES[@]}"; do
             # Remove any whitespace
